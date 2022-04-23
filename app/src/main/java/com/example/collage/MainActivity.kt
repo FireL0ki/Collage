@@ -24,15 +24,29 @@ private const val TAG = "MAIN_ACTIVITY"
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var imageButton1: ImageButton
+//    private lateinit var imageButton1: ImageButton
+    // replace single imageButton with list of ImageButtons to work with all of them
+    private lateinit var imageButtons: List<ImageButton>
     private lateinit var mainView: View
 
-    private var newPhotoPath: String? = null
-    private var visibleImagePath: String? = null
+//    private var newPhotoPath: String? = null
+//    private var visibleImagePath: String? = null
+    private var photoPaths: ArrayList<String?> = arrayListOf(null, null, null, null)
+
+    // tracking which image button we are working with 0, 1, 2, 3
+    private var whichImageIndex: Int? = null
+
+    // path to the photo being currently interacted with by the user
+    private var currentPhotoPath: String? = null
 
     // for saving on rotation
-    private val NEW_PHOTO_PATH_KEY = "new photo path key"
-    private val VISIBLE_IMAGE_PATH_KEY = "visible image path key"
+//    private val NEW_PHOTO_PATH_KEY = "new photo path key"
+//    private val VISIBLE_IMAGE_PATH_KEY = "visible image path key"
+
+
+    private val PHOTO_PATH_LIST_ARRAY_KEY = "photo path list key"
+    private val IMAGE_INDEX_KEY = "image index key"
+    private val CURRENT_PHOTO_PATH_KEY = "current photo path key"
 
     private val cameraActivityLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         result -> handleImage(result)
@@ -42,28 +56,54 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        newPhotoPath = savedInstanceState?.getString(NEW_PHOTO_PATH_KEY)
-        visibleImagePath = savedInstanceState?.getString(VISIBLE_IMAGE_PATH_KEY)
+        whichImageIndex = savedInstanceState?.getInt(IMAGE_INDEX_KEY)
+        currentPhotoPath = savedInstanceState?.getString(CURRENT_PHOTO_PATH_KEY)
+        photoPaths = savedInstanceState?.getStringArrayList(PHOTO_PATH_LIST_ARRAY_KEY)
+            ?: arrayListOf(null, null, null, null)
 
-        imageButton1 = findViewById(R.id.imageButton1)
-        imageButton1.setOnClickListener {
-            takePicture()
+//        newPhotoPath = savedInstanceState?.getString(NEW_PHOTO_PATH_KEY)
+//        visibleImagePath = savedInstanceState?.getString(VISIBLE_IMAGE_PATH_KEY)
+
+        mainView = findViewById(R.id.content)
+
+        imageButtons = listOf<ImageButton>(
+            findViewById(R.id.imageButton1),
+            findViewById(R.id.imageButton2),
+            findViewById(R.id.imageButton3),
+            findViewById(R.id.imageButton4)
+        )
+
+//        imageButton1 = findViewById(R.id.imageButton1)
+//        imageButton1.setOnClickListener {
+//            takePicture()
+//        }
+
+        for (imageButton in imageButtons) {
+            imageButton.setOnClickListener { ib -> // ib = image button
+                takePictureFor(ib as ImageButton)
+            }
         }
     }
 
     // save the two instance state variables in the bundle
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
-        outState.putString(NEW_PHOTO_PATH_KEY, newPhotoPath)
-        outState.putString(VISIBLE_IMAGE_PATH_KEY, visibleImagePath)
+        outState.putStringArrayList(PHOTO_PATH_LIST_ARRAY_KEY, photoPaths)
+        outState.putString(CURRENT_PHOTO_PATH_KEY, currentPhotoPath)
+        whichImageIndex?.let { index -> outState.putInt(IMAGE_INDEX_KEY, index) } // lambda function
     }
 
-    private fun takePicture() {
+    private fun takePictureFor(imageButton: ImageButton) {
+
+        val index = imageButtons.indexOf(imageButton)
+        whichImageIndex = index
+
         val takePictureIntent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
+
         val (photoFile, photoFilePath) = createImageFile()
 
         if (photoFile != null) {
-            newPhotoPath = photoFilePath
+            currentPhotoPath = photoFilePath
             val photoUri = FileProvider.getUriForFile(
                 this,
                 "com.example.collage.fileprovider",
@@ -94,8 +134,8 @@ class MainActivity : AppCompatActivity() {
     private fun handleImage(result: ActivityResult) {
         when (result.resultCode) {
             RESULT_OK -> {
-                Log.d(TAG, "Result ok, user took picture, image at $newPhotoPath")
-                visibleImagePath = newPhotoPath
+                Log.d(TAG, "Result ok, user took picture, image at $currentPhotoPath")
+                whichImageIndex?.let { index -> photoPaths[index] = currentPhotoPath }
             }
             RESULT_CANCELED -> {
                 Log.d(TAG, "Result cancelled, no picture taken")
@@ -105,10 +145,15 @@ class MainActivity : AppCompatActivity() {
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        Log.d(TAG, "On window focus changed $hasFocus visible image at $visibleImagePath")
+        Log.d(TAG, "On window focus changed $hasFocus visible image at $currentPhotoPath")
         if (hasFocus) {
-            visibleImagePath?.let { imagePath ->
-                loadImage(imageButton1, imagePath) }
+//            visibleImagePath?.let { imagePath ->
+//                loadImage(imageButton1, imagePath) }
+            imageButtons.zip(photoPaths) { imageButton, photoPath ->
+                photoPath?.let {
+                    loadImage(imageButton, photoPath)
+                }
+            }
         }
     }
 
